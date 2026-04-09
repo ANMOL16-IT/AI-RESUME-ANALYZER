@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <!-- Animated background -->
+    <div class="bg-canvas">
+        <div class="orb orb1"></div>
+        <div class="orb orb2"></div>
+        <div class="orb orb3"></div>
+        <div class="orb orb4"></div>
+        <div class="grid-lines"></div>
+        <canvas id="pCanvas" class="particles"></canvas>
+    </div>
+
+    <div class="page">
+
+        <header class="header">
+            <div class="logo-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="9" y1="13" x2="15" y2="13"/>
+                    <line x1="9" y1="17" x2="13" y2="17"/>
+                </svg>
+            </div>
+            <h1>AI Resume Analyzer</h1>
+            <p class="tagline">Drop your resume. Get instant AI-powered feedback.</p>
+        </header>
+
+        <main class="card">
+
+            <div id="drop-area">
+                <div class="drop-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                </div>
+                <p class="drop-label">Drag & drop your resume here</p>
+                <p class="drop-sub">or <span class="browse-link" id="browse-btn">click to browse</span></p>
+                <div class="formats">
+                    <span class="fmt-pill">PDF</span>
+                    <span class="fmt-pill">DOCX</span>
+                    <span class="fmt-pill">TXT</span>
+                </div>
+            </div>
+
+            <input type="file" id="file-input" accept=".pdf,.doc,.docx,.txt" style="display:none">
+
+            <div class="file-info" id="file-info">
+                <div class="file-icon-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                </div>
+                <div class="file-meta">
+                    <span class="file-name" id="file-name">—</span>
+                    <span class="file-size" id="file-size">—</span>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <span>Analyzing your resume…</span>
+            </div>
+
+            <div class="output-section" id="output-section">
+                <div class="output-header">
+                    <span class="status-dot"></span>
+                    <span class="output-label">Analysis complete</span>
+                </div>
+                <pre id="output"></pre>
+            </div>
+
+        </main>
+
+    </div>
+
+    <script>
+        const dropArea  = document.getElementById("drop-area");
+        const fileInput = document.getElementById("file-input");
+        const browseBtn = document.getElementById("browse-btn");
+        const fileInfo  = document.getElementById("file-info");
+        const fileName  = document.getElementById("file-name");
+        const fileSize  = document.getElementById("file-size");
+        const loading   = document.getElementById("loading");
+        const outputSec = document.getElementById("output-section");
+        const output    = document.getElementById("output");
+
+        function formatBytes(b) {
+            if (b < 1024) return b + " B";
+            if (b < 1048576) return (b / 1024).toFixed(1) + " KB";
+            return (b / 1048576).toFixed(1) + " MB";
+        }
+
+        async function handleFile(file) {
+            fileName.textContent = file.name;
+            fileSize.textContent = formatBytes(file.size);
+            fileInfo.classList.add("visible");
+            loading.classList.add("visible");
+            outputSec.classList.remove("visible");
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const response = await fetch("/upload", { method: "POST", body: formData });
+                const data = await response.json();
+                output.textContent = data.analysis;
+                outputSec.classList.add("visible");
+            } catch (e) {
+                output.textContent = "Something went wrong. Please try again.";
+                outputSec.classList.add("visible");
+            } finally {
+                loading.classList.remove("visible");
+            }
+        }
+
+        browseBtn.addEventListener("click", () => fileInput.click());
+        fileInput.addEventListener("change", e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+        dropArea.addEventListener("dragover", e => { e.preventDefault(); dropArea.classList.add("drag-over"); });
+        dropArea.addEventListener("dragleave", () => dropArea.classList.remove("drag-over"));
+        dropArea.addEventListener("drop", e => {
+            e.preventDefault();
+            dropArea.classList.remove("drag-over");
+            if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+        });
+
+        /* Floating particles */
+        const canvas = document.getElementById("pCanvas");
+        const ctx = canvas.getContext("2d");
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+
+        const dots = Array.from({ length: 70 }, () => ({
+            x: Math.random() * window.innerWidth,
+            y: Math.random() * window.innerHeight,
+            r: Math.random() * 1.5 + 0.4,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.3,
+            a: Math.random() * 0.45 + 0.15
+        }));
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            dots.forEach(d => {
+                d.x += d.vx;
+                d.y += d.vy;
+                if (d.x < 0) d.x = canvas.width;
+                if (d.x > canvas.width) d.x = 0;
+                if (d.y < 0) d.y = canvas.height;
+                if (d.y > canvas.height) d.y = 0;
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(167, 139, 250, ${d.a})`;
+                ctx.fill();
+            });
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+    </script>
+
+</body>
+</html>
